@@ -74,6 +74,18 @@ function drawGrid(context, grid, width, height) {
   });
 }
 
+function isOccupied({ x, y }) {
+  const idx = xyToIndex(x, y);
+  return state.grid[idx].occupied;
+}
+
+function setOccupied({ x, y }) {
+  const idx = xyToIndex(x, y);
+  if (idx >= 0) {
+    state.grid[idx].occupied = true;
+  }
+}
+
 /**
  * Utils
  */
