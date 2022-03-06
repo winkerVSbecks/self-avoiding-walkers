@@ -1,0 +1,22 @@
+{
+  "name": "self-avoiding-walkers",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "canvas-sketch --output=renders --stream --open sketch.js",
+    "start:gif": "canvas-sketch --output=renders --stream=gif --open sketch.js"
+  },
+  "keywords": [],
+  "author": "Varun Vachhar",
+  "license": "MIT",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "canvas-sketch": "^0.7.5",
+    "canvas-sketch-cli": "^1.11.15",
+    "canvas-sketch-util": "^1.10.0",
+    "paper-colors": "^1.0.0",
+    "riso-colors": "^1.0.1"
+  }
+}
