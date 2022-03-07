@@ -12,7 +12,7 @@ const settings = {
 const config = {
   resolution: 40,
   size: 5,
-  walkerCount: 1,
+  walkerCount: 10,
   colors: {
     background: colors.bg,
     grid: colors.ink(),
@@ -54,6 +54,7 @@ function makeWalker() {
   const start = {
     x: Random.rangeFloor(1, config.resolution - 1),
     y: Random.rangeFloor(1, config.resolution - 1),
+    moveTo: true,
   };
 
   return {
@@ -68,8 +69,10 @@ function step(walker) {
   let current = walker.path[currentIndex];
   let next = findNextStep(current);
 
-  setOccupied(next);
-  walker.path.push(next);
+  if (next) {
+    setOccupied(next);
+    walker.path.push(next);
+  }
 }
 
 function findNextStep({ x, y }) {
@@ -78,7 +81,9 @@ function findNextStep({ x, y }) {
     { x: x - 1, y: y },
     { x: x, y: y + 1 },
     { x: x, y: y - 1 },
-  ];
+  ].filter((potentialNext) => {
+    return inBounds(potentialNext) && !isOccupied(potentialNext);
+  });
 
   return Random.pick(options);
 }
@@ -144,6 +149,10 @@ function setOccupied({ x, y }) {
  */
 function xyToIndex(x, y) {
   return x - 1 + (config.resolution - 1) * (y - 1);
+}
+
+function inBounds({ x, y }) {
+  return x > 0 && x < config.resolution && y > 0 && y < config.resolution;
 }
 
 function xyToCoords(x, y, width, height) {
