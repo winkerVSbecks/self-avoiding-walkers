@@ -1,5 +1,4 @@
 const canvasSketch = require('canvas-sketch');
-const { mapRange, lerpFrames, clamp } = require('canvas-sketch-util/math');
 const Random = require('canvas-sketch-util/random');
 const { colors } = require('./colors');
 
@@ -69,12 +68,25 @@ function step(walker) {
   let current = walker.path[currentIndex];
   let next = findNextStep(current);
 
+  while (!next) {
+    if (currentIndex > 0) {
+      currentIndex--;
+    } else {
+      break;
+    }
+
+    current = walker.path[currentIndex];
+    next = findNextStep(current);
+    if (next) {
+      next.moveTo = true;
+    }
+  }
+
   if (next) {
     setOccupied(next);
     walker.path.push(next);
   } else {
     walker.state = 'dead';
-    state.walkers.push(makeWalker());
   }
 }
 
