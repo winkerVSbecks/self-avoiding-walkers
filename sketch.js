@@ -72,6 +72,9 @@ function step(walker) {
   if (next) {
     setOccupied(next);
     walker.path.push(next);
+  } else {
+    walker.state = 'dead';
+    state.walkers.push(makeWalker());
   }
 }
 
@@ -94,8 +97,9 @@ function drawWalker(context, walker, width, height) {
 
   context.beginPath();
 
-  walker.path.map(({ x, y }) => {
-    context.lineTo(...xyToCoords(x, y, width, height));
+  walker.path.map(({ x, y, moveTo }) => {
+    const operation = moveTo ? 'moveTo' : 'lineTo';
+    context[operation](...xyToCoords(x, y, width, height));
   });
 
   context.stroke();
