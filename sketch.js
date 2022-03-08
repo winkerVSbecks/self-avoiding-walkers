@@ -1,75 +1,181 @@
 const canvasSketch = require('canvas-sketch');
-const { lerp } = require('canvas-sketch-util/math');
+const Random = require('canvas-sketch-util/random');
 const { colors } = require('./colors');
 
 const settings = {
   dimensions: [1080, 1080],
   animate: true,
-  duration: 3,
+  duration: 8,
 };
 
-// Start the sketch
-canvasSketch(() => {
+const config = {
+  resolution: 40,
+  size: 5,
+  walkerCount: 10,
+  colors: {
+    background: colors.bg,
+    grid: colors.ink(),
+  },
+};
+
+const state = {
+  grid: [],
+};
+
+const sketch = () => {
   return {
-    begin() {},
-    render({ context, width, height, playhead }) {
-      // clear the canvas
+    begin() {
+      state.grid = makeGrid();
+      state.walkers = new Array(config.walkerCount).fill(null).map(makeWalker);
+    },
+    render({ context, width, height }) {
+      // clear
       context.clearRect(0, 0, width, height);
-      context.fillStyle = colors.bg;
+      context.fillStyle = config.colors.background;
       context.fillRect(0, 0, width, height);
 
-      const gridSize = 7;
-      const padding = width * 0.2;
-      const tileSize = (width - padding * 2) / gridSize;
+      drawGrid(context, state.grid, width, height);
 
-      for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-          // get a 0..1 UV coordinate
-          const u = x / (gridSize - 1);
-          const v = y / (gridSize - 1);
-
-          // scale to dimensions with a border padding
-          const tx = lerp(padding, width - padding, u);
-          const ty = lerp(padding, height - padding, v);
-
-          // here we get a 't' value between 0..1 that
-          // shifts subtly across the UV coordinates
-          const offset = u * 0.2 + v * 0.1;
-          const t = (playhead + offset) % 1;
-
-          // now we get a value that varies from 0..1 and back
-          let mod = Math.sin(t * Math.PI);
-
-          // we make it 'ease' a bit more dramatically with exponential
-          mod = Math.pow(mod, 3);
-
-          // now choose a length, thickness and initial rotation
-          const length = tileSize * 0.65;
-          const thickness = tileSize * 0.1;
-          const initialRotation = Math.PI / 2;
-
-          // And rotate each line a bit by our modifier
-          const rotation = initialRotation + mod * Math.PI;
-
-          // Now render the grid
-          context.save();
-          context.fillStyle = colors.foreground;
-
-          // Rotate in place
-          context.translate(tx, ty);
-          context.rotate(rotation);
-          context.translate(-tx, -ty);
-
-          // Draw the line
-          context.fillRect(
-            tx - length / 2,
-            ty - thickness / 2,
-            length,
-            thickness
-          );
-          context.restore();
+      state.walkers.forEach((walker) => {
+        if (walker.state === 'alive') {
+          step(walker);
         }
-      }
+        drawWalker(context, walker, width, height);
+      });
     },
   };
-}, settings);
+};
+
+/**
+ * Walker
+ */
+function makeWalker() {
+  const start = {
+    x: Random.rangeFloor(1, config.resolution - 1),
+    y: Random.rangeFloor(1, config.resolution - 1),
+    moveTo: true,
+  };
+
+  return {
+    path: [start],
+    color: colors.ink(),
+    state: 'alive',
+  };
+}
+
+function step(walker) {
+  let currentIndex = walker.path.length - 1;
+  let current = walker.path[currentIndex];
+  let next = findNextStep(current);
+
+  while (!next) {
+    if (currentIndex > 0) {
+      currentIndex--;
+    } else {
+      break;
+    }
+
+    current = walker.path[currentIndex];
+    next = findNextStep(current);
+    if (next) {
+      next.moveTo = true;
+    }
+  }
+
+  if (next) {
+    setOccupied(next);
+    walker.path.push(next);
+  } else {
+    walker.state = 'dead';
+  }
+}
+
+function findNextStep({ x, y }) {
+  const options = [
+    { x: x + 1, y: y },
+    { x: x - 1, y: y },
+    { x: x, y: y + 1 },
+    { x: x, y: y - 1 },
+  ].filter((potentialNext) => {
+    return inBounds(potentialNext) && !isOccupied(potentialNext);
+  });
+
+  return Random.pick(options);
+}
+
+function drawWalker(context, walker, width, height) {
+  context.strokeStyle = walker.color;
+  context.lineWidth = config.size;
+
+  context.beginPath();
+
+  walker.path.map(({ x, y, moveTo }) => {
+    const operation = moveTo ? 'moveTo' : 'lineTo';
+    context[operation](...xyToCoords(x, y, width, height));
+  });
+
+  context.stroke();
+}
+
+/**
+ * Grid
+ */
+function makeGrid() {
+  const grid = [];
+
+  for (let y = 1; y < config.resolution; y++) {
+    for (let x = 1; x < config.resolution; x++) {
+      grid.push({ x, y, occupied: false });
+    }
+  }
+
+  return grid;
+}
+
+function drawGrid(context, grid, width, height) {
+  grid.map(({ x, y, occupied }) => {
+    context.fillStyle = config.colors.grid;
+    if (!occupied) {
+      const [worldX, worldY] = xyToCoords(x, y, width, height);
+
+      context.fillRect(
+        worldX - config.size / 2,
+        worldY - config.size / 2,
+        config.size,
+        config.size
+      );
+    }
+  });
+}
+
+function isOccupied({ x, y }) {
+  const idx = xyToIndex(x, y);
+  return state.grid[idx].occupied;
+}
+
+function setOccupied({ x, y }) {
+  const idx = xyToIndex(x, y);
+  if (idx >= 0 && idx < state.grid.length) {
+    state.grid[idx].occupied = true;
+  }
+}
+
+/**
+ * Utils
+ */
+function xyToIndex(x, y) {
+  return x - 1 + (config.resolution - 1) * (y - 1);
+}
+
+function inBounds({ x, y }) {
+  return x > 0 && x < config.resolution && y > 0 && y < config.resolution;
+}
+
+function xyToCoords(x, y, width, height) {
+  return [
+    (x * width) / config.resolution - 1,
+    (y * height) / config.resolution - 1,
+  ];
+}
+
+canvasSketch(sketch, settings);
